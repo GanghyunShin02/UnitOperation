@@ -9,7 +9,7 @@ _frame sheet에서 raw data를 입력하고 계산해서 _result sheet에 입력
 
 차가운물, 뜨거운물의 레이놀즈수와 효율(찬물이 얻은 열량/뜨거운물이 잃은열량)을 도시했다.
 
-![Raynolds of Cold water and eta](images/Raynolds of Cold water and eta.png)
+![Raynolds of Cold water and eta](images/Reynolds_of_Cold_water_and_eta.png)
 
 
 
