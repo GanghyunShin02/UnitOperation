@@ -23,8 +23,8 @@ Theoritical Nuusel number on Forced Convection is $Nu=51.3446$
 
 gradient Temperature
 
-![Natural](/image/Nature.png)
-![Forced](/image/Forced.png)
+![Natural](image/Nature.png)
+![Forced](image/Forced.png)
 
 
 
