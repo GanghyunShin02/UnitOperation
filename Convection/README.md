@@ -1,4 +1,4 @@
-## Convection
+# Convection
 
 Compare Natural convection and Force convection on plate.
 Using experience machine.\
@@ -14,10 +14,10 @@ Plate's length `D` is $0.106m$
 `k` : Thermal conductivity\
 `Nu` : Nussel Number, $\frac{hD}{k}$
 
-# Result
+## Result
 
 In Natural convection, $Nu=95.89534$\
-Force convection, $Nu=146.7734$
+Force convection, $Nu=146.7734$\
 Theoritical Nuusel number on Forced Convection is $Nu=51.3446$
 
 
