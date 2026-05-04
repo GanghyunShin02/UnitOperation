@@ -18,4 +18,6 @@ In this experiment, we use Ethanol-water solution. And real step is 8.
 5. Start at dot of $x_D$-Rectifying line ( $x_D$ is Top solution molfraction)\
    step.
 
+   ![s](image/q-line.png)
+
 
