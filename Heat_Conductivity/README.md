@@ -3,7 +3,8 @@
 Measure Heat conductiviry(k) brass, aluminum, stainless, copper.
 
 Input data at `k_frame.xlsx` \
-Calculate at `conductivity.ipynb` 
+Calculate at `conductivity.ipynb` \
+Result note at `k_reslut.xlsx`
 
 ---
 
