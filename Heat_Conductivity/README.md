@@ -18,6 +18,9 @@ $$
 \frac{W}{m K} $$
 
 
+Machine's Heat bar is brass. \
+Without Brass,  measure Temperature's gradient at only "x[2],x[3],x[4]" .
+
 ---
 
 ### Result
