@@ -26,6 +26,11 @@ Aluminum, 126.6905019636978, error is 0.25476175
 
 
 
+
+![s](image/brass.png)
+![s](image/aluminum.png)
+
+
 How calculate Error is
 
 $$
