@@ -17,7 +17,8 @@ $$
 ### Result
 
 Calculate with code is :
-138.908, error is 0.12
+Brass,138.908, error is 0.12 \
+Aluminum, 126.6905019636978, error is 0.25476175 \
 
 
 
