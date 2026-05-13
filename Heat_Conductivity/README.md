@@ -16,9 +16,9 @@ $$
 
 ### Result
 
-Calculate with code is :
+Calculate with code is : \
 Brass,138.908, error is 0.12 \
-Aluminum, 126.6905019636978, error is 0.25476175 \
+Aluminum, 126.6905019636978, error is 0.25476175 
 
 
 
