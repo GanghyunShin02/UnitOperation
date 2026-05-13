@@ -1,8 +1,10 @@
-## Heat Conductivity
+# Heat Conductivity
 
 
 Input data at `k_frame.xlsx` \
-Calculate at `conductivity.xlsx` 
+Calculate at `conductivity.ipynb` 
+
+---
 
 ### Things
 
@@ -13,6 +15,8 @@ Unit is
 $$
 \frac{W}{m K} $$
 
+
+---
 
 ### Result
 
