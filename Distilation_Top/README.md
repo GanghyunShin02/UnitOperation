@@ -51,3 +51,24 @@ Except feed stage, condensor, reboiler, stage efficent is 0.625.
 | **이론 7단** <br> (단 효율: 1.0) | **1 (Top / Condenser)** <br> 2 <br> 3 <br> 4 <br> 5 <br> 6 <br> 7 <br> 8 <br> **9 (Bottom / Reboiler)** | 0.228772 <br> 0.264322 <br> 0.294599 <br> 0.323851 <br> 0.355828 <br> 0.395547 <br> 0.449960 <br> 0.492919 <br> **0.662485** | **0.771228** <br> 0.735678 <br> 0.705401 <br> 0.676149 <br> 0.644172 <br> 0.604453 <br> 0.550040 <br> 0.507081 <br> **0.337515** |
 
 We measured top vapor condensered(condensor; stage 1) and bottom(reboiler;stage 10) liquid.
+
+
+Change solver Napthali-Sandholm -> Modified Wang-Henke\
+Modified Wang-Henke solver converge very fast.
+
+
+### 📊 Comparison of Distillation Column Vapor Composition (Modified Wang-Henke Solver)
+
+| Stage (탑 내부 위치) | 8단 (효율: 0.625) <br> Ethanol Molar Frac. | 5단 (효율: 1.0) <br> Ethanol Molar Frac. | 7단 (효율: 1.0) <br> Ethanol Molar Frac. | 8단 (효율: 0.875) <br> Ethanol Molar Frac. |
+| :---: | :---: | :---: | :---: | :---: |
+| **1 (Top / Condenser)** | **0.755322** | **0.754820** | **0.771516** | **0.755106** |
+| **2** | 0.683702 | 0.708673 | 0.736138 | 0.703002 |
+| **3** | 0.640634 | 0.665863 | 0.706050 | 0.659781 |
+| **4** | 0.596237 | 0.618212 | 0.677048 | 0.611619 |
+| **5** | 0.555505 | 0.555185 | 0.645450 | 0.556275 |
+| **6** | 0.554304 | 0.546795 | 0.606370 | 0.556206 |
+| **7** | 0.551121 | **0.517462** (Bottom) | 0.552908 | 0.555751 |
+| **8** | 0.542874 | - | 0.544965 | 0.553040 |
+| **9** | 0.522802 | - | **0.517126** (Bottom) | 0.538814 |
+| **10 (Bottom / Reboiler)** | **0.517105** | - | - | **0.517096** |
+| *실제 실험치 (참고)* | *상부: **0.7231*** | *하부: **0.1334*** | | |
