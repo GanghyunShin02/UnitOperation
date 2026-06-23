@@ -5,10 +5,13 @@ from mpi4py import MPI
 import gmsh
 import ufl
 from ufl import grad,TestFunction,TrialFunction,dx
-from dolfinx.fem import Constant, Function,functionspace
+from dolfinx.fem import Constant, Function,functionspace,dirichletbc,locate_dofs_topological,assemble_scalar
 from dolfinx import mesh,fem,io
 from dolfinx.io import VTXWriter,gmsh as gmshio
 from pathlib import Path
+from CoolProp.CoolProp import PropsSI
+from basix.ufl import element
+from petsc4py import PETSc
 
 # 메시생성
 gmsh.initialize()
@@ -55,9 +58,13 @@ if MPI.COMM_WORLD.rank==0:
 
 
     gmsh.model.addPhysicalGroup(3,[fluid_in_tag],1,'fluid_in')
+    gmsh.model.setPhysicalName(3,fluid_in_tag,'fluid_in')
     gmsh.model.addPhysicalGroup(3,[wall_in_tag],2,'wall_in')
+    gmsh.model.setPhysicalName(3,wall_in_tag,'wall_in')
     gmsh.model.addPhysicalGroup(3,[fluid_out_tag],3,'fluid_out')
+    gmsh.model.setPhysicalName(3,fluid_out_tag,'fluid_out')
     gmsh.model.addPhysicalGroup(3,[wall_out_tag],4,'wall_out')
+    gmsh.model.setPhysicalName(3,wall_out_tag,'wall_out')
 
     gmsh.option.setNumber('Mesh.Algorithm3D',1)
     gmsh.option.setNumber('Mesh.MeshSizeMin',0.05)
@@ -66,6 +73,7 @@ if MPI.COMM_WORLD.rank==0:
     gmsh.model.mesh.generate(gdim)
 
 #print(f'modeltomesh{gmshio.model_to_mesh(gmsh.model,MPI.COMM_WORLD,0,gdim)}')
+# meshdata는 meshio.Mesh객체, meshdata.mesh는 dolfinx.mesh.Mesh객체, meshdata.facet_tags는 facet_marker, meshdata.cell_tags는 cell_marker
 meshdata=gmshio.model_to_mesh(gmsh.model,MPI.COMM_WORLD,0,gdim)
 domain=meshdata.mesh
 facet_marker=meshdata.facet_tags
@@ -79,14 +87,49 @@ with io.XDMFFile(domain.comm, "heat_exchanger_geometry.xdmf", "w") as xdmf:
 
 
 
+'''
+일단 병류흐름부터. 질량유량은 둘다 10kg/s로.
+내관유체 초기온도는 300K, 외관유체 초기온도는 350K.  관의 초기온도도 동일하게..
+'''
+r_i,r_O,R_i,R_O=0.9,1.0,1.9,2.0
+R_bar=(R_i-r_O)/2 #수력학적 반지름.
+A_i=np.pi*r_i**2
+A_O=np.pi*(R_i**2-r_O**2)
+m=10 #kg/s
+
+def rho_T(T):
+    return PropsSI('D','T',T,'P',101325,'Water')
+def nu_T(T):
+    return PropsSI('V','T',T,'P',101325,'Water')/rho_T(T)
+def k_T(T):
+    return PropsSI('L','T',T,'P',101325,'Water')
+def cp_T(T):
+    return PropsSI('C','T',T,'P',101325,'Water')
+
+# 초기속도
+u_i_0=(m/(rho_T(300)*A_i),0,0)
+u_O_0=(m/(rho_T(350)*A_O),0,0)
+
+
+# 함수공간
+v_cg_1=element('Lagrange',mesh.basix_cell(),2,shape=(mesh.geometry.dim,)) #내관
+P_cg_1=element('Lagrange',mesh.basix_cell(),1) #내관
+v_cg_2=element('Lagrange',mesh.basix_cell(),2,shape=(mesh.geometry.dim,)) # 외관
+P_cg_2=element('Lagrange',mesh.basix_cell(),1) # 외관
+
+V_in=ufl.FunctionSpace(domain,v_cg_1)
+V_out=ufl.FunctionSpace(domain,v_cg_2)
+P_in=ufl.FunctionSpace(domain,P_cg_1)
+P_out=ufl.FunctionSpace(domain,P_cg_2)
 
 
 
+# 경계조건.. 관벽에서 속도가 0으로
+u_noslip=np.array((0,)*mesh.geometry.dim,dtype=PETSc.ScalarType)
+bcu_wall_in=dirichletbc(u_noslip,fem.locate_dofs_topological(V_in,domain.topology.dim-1,facet_marker.find(wall_in_tag)),V_in)
+bcu_wall_out=dirichletbc(u_noslip,fem.locate_dofs_topological(V_out,domain.topology.dim-1,facet_marker.find(wall_out_tag)),V_out)
+bcu_inlet=dirichletbc(u_i_0,fem.locate_dofs_topological(V_in,domain.topology.dim-1,facet_marker.find(fluid_in_tag)),V_in)
+bcu_outlet=dirichletbc(u_O_0,fem.locate_dofs_topological(V_out,domain.topology.dim-1,facet_marker.find(fluid_out_tag)),V_out)
+bcu=[bcu_wall_in, bcu_wall_out, bcu_inlet, bcu_outlet]
 
-
-
-
-
-
-
-    
+# 튜토리얼에서는 아웃렛 압력을 0으로고정했는데
