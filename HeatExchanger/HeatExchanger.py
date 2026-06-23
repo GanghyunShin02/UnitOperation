@@ -99,6 +99,8 @@ m=10 #kg/s
 
 def rho_T(T):
     return PropsSI('D','T',T,'P',101325,'Water')
+def mu_T(T):
+    return PropsSI('V','T',T,'P',101325,'Water')
 def nu_T(T):
     return PropsSI('V','T',T,'P',101325,'Water')/rho_T(T)
 def k_T(T):
@@ -110,6 +112,17 @@ def cp_T(T):
 u_i_0=(m/(rho_T(300)*A_i),0,0)
 u_O_0=(m/(rho_T(350)*A_O),0,0)
 
+# 속도장계싼에서쓸 물성치
+rho_i_0=rho_T(300)
+rho_O_0=rho_T(350)
+nu_i_0=nu_T(300)
+nu_O_0=nu_T(350)
+k_i_0=k_T(300)
+k_O_0=k_T(350)
+cp_i_0=cp_T(300)
+cp_O_0=cp_T(350)
+mu_i_0=mu_T(300)
+mu_O_0=mu_T(350)
 
 # 함수공간
 v_cg_1=element('Lagrange',mesh.basix_cell(),2,shape=(mesh.geometry.dim,)) #내관
@@ -132,4 +145,114 @@ bcu_inlet=dirichletbc(u_i_0,fem.locate_dofs_topological(V_in,domain.topology.dim
 bcu_outlet=dirichletbc(u_O_0,fem.locate_dofs_topological(V_out,domain.topology.dim-1,facet_marker.find(fluid_out_tag)),V_out)
 bcu=[bcu_wall_in, bcu_wall_out, bcu_inlet, bcu_outlet]
 
-# 튜토리얼에서는 아웃렛 압력을 0으로고정했는데
+# 튜토리얼에서는 아웃렛 압력을 0으로고정했는데 일단 그냥해보겠음.
+
+
+# 이산화한 NS식을 약형식으로..
+
+u_in,v_in=TrialFunction(V_in),TestFunction(V_in)
+u_n=ufl.Function(V_in)
+u_n1=ufl.Function(V_in)
+u_s=ufl.Function(V_in)
+p_in,q_in=TrialFunction(P_in),TestFunction(P_in)
+
+u_out,v_out=TrialFunction(V_out),TestFunction(V_out)
+p_out,q_out=TrialFunction(P_out),TestFunction(P_out)
+
+dt=fem.Constant(domain,1)
+
+# 1.속도추정
+F_in=(rho_i_0/dt)*ufl.dot((u_in-u_n),v_in)*dx
+F_in+=rho_i_0*ufl.inner(ufl.grad(1.5*u_n-0.5*u_n1),0.5*ufl.nabla_grad(u_in-u_n),v_in)*dx
+F_in+=0.5*mu_i_0*ufl.inner(ufl.nabla_grad(u_in+u_n),ufl.nabla_grad(v_in))*dx
+F_in+=ufl.inner(ufl.nabla_grad())
+
+a_in=ufl.lhs(F_in)
+L_in=ufl.rhs(F_in)
+A_in=fem.petsc.create_vector(a_in)
+b_in=fem.petsc.create_vector(ufl.extract_function_space(L_in)) #?
+
+F_out=(rho_O_0/dt)*ufl.dot((u_out-u_n),v_out)*dx
+F_out+=rho_O_0*ufl.inner(ufl.grad(1.5*u_n-0.5*u_n1),0.5*ufl.nabla_grad(u_out-u_n),v_out)*dx
+F_out+=0.5*mu_O_0*ufl.inner(ufl.nabla_grad(u_out+u_n),ufl.nabla_grad(v_out))*dx
+a_out=ufl.lhs(F_out)
+L_out=ufl.rhs(F_out)
+A_out=fem.petsc.create_vector(a_out)
+b_out=fem.petsc.create_vector(ufl.extract_function_space(L_out)) #?
+
+#2. 압력보정
+
+a_p_in=ufl.form(ufl.dot(grad(p_in),grad(q_in))*dx)
+L_p_in=ufl.form(-rho_i_0/dt*ufl.dot(ufl.div(u_s)),ufl.grad(q_in)*dx)
+A_p_in=fem.assemble_matrix(a_p_in,bcs=[]) # 압력 경계조건...
+A_p_in.assemble()
+b_p_in=fem.petsc.create_vector(ufl.extract_function_space(L_p_in))
+
+a_p_out=ufl.form(ufl.dot(grad(p_out),grad(q_out))*dx)
+L_p_out=ufl.form(-rho_O_0/dt*ufl.dot(ufl.div(u_s)),ufl.grad(q_out)*dx)
+A_p_out=fem.assemble_matrix(a_p_out,bcs=[]) # 압력 경계조건...
+A_p_out.assemble()
+b_p_out=fem.petsc.create_vector(ufl.extract_function_space(L_p_out))
+
+#3. 속도보정
+ac=ufl.form(rho_i_0*ufl.dot(u_in,v_in)*dx)
+Lc=ufl.form(rho_i_0*ufl.dot(u_s,v_in)*dx-rho_i_0*dt*ufl.dot(grad(p_in),v_in)*dx)
+Ac=fem.assemble_matrix(ac,bcs=bcu) # 속도 경계조건
+Ac.assemble()
+b_c=fem.petsc.create_vector(ufl.extract_function_space(Lc))
+
+acc=ufl.form(rho_O_0*ufl.dot(u_out,v_out)*dx)
+Lcc=ufl.form(rho_O_0*ufl.dot(u_s,v_out)*dx-rho_O_0*dt*ufl.dot(grad(p_out),v_out)*dx)
+Acc=fem.assemble_matrix(acc,bcs=bcu) # 속도 경계조건
+Acc.assemble()
+b_cc=fem.petsc.create_vector(ufl.extract_function_space(Lcc))
+
+# Solver for step 1
+solver1 = PETSc.KSP().create(mesh.comm)
+solver1.setOperators(A_in)
+solver1.setType(PETSc.KSP.Type.BCGS)
+pc1 = solver1.getPC()
+pc1.setType(PETSc.PC.Type.JACOBI)
+
+solver1_1 = PETSc.KSP().create(mesh.comm)
+solver1_1.setOperators(A_out)
+solver1_1.setType(PETSc.KSP.Type.BCGS)
+pc1_1 = solver1_1.getPC()
+pc1_1.setType(PETSc.PC.Type.JACOBI)
+
+# Solver for step 2
+solver2 = PETSc.KSP().create(mesh.comm)
+solver2.setOperators(A_p_in)
+solver2.setType(PETSc.KSP.Type.MINRES)
+pc2 = solver2.getPC()
+pc2.setType(PETSc.PC.Type.HYPRE)
+pc2.setHYPREType("boomeramg")
+
+solver2_1 = PETSc.KSP().create(mesh.comm)
+solver2_1.setOperators(A_p_out)
+solver2_1.setType(PETSc.KSP.Type.MINRES)
+pc2_1 = solver2_1.getPC()
+pc2_1.setType(PETSc.PC.Type.HYPRE)
+pc2_1.setHYPREType("boomeramg")
+
+# Solver for step 3
+solver3 = PETSc.KSP().create(mesh.comm)
+solver3.setOperators(Ac)
+solver3.setType(PETSc.KSP.Type.CG)
+pc3 = solver3.getPC()
+pc3.setType(PETSc.PC.Type.SOR)
+
+solver3_1 = PETSc.KSP().create(mesh.comm)
+solver3_1.setOperators(Acc)
+solver3_1.setType(PETSc.KSP.Type.CG)
+pc3_1 = solver3_1.getPC()
+pc3_1.setType(PETSc.PC.Type.SOR)
+
+
+# 틀린게 많음....
+
+
+
+
+
+
