@@ -72,7 +72,7 @@ if MPI.COMM_WORLD.rank==0:
     gmsh.model.addPhysicalGroup(gdim-1,[8],20,'fluid1_inlet')
     gmsh.model.addPhysicalGroup(gdim-1,[6],21,'fluid1_outlet')
     gmsh.model.addPhysicalGroup(gdim-1,[16],22,'fluid2_inlet')
-    gmsh.model.addPhysicalGroup(gdim-1,[14],23,'fluid1_outlet')
+    gmsh.model.addPhysicalGroup(gdim-1,[14],23,'fluid2_outlet')
     gmsh.model.addPhysicalGroup(gdim-1,[24],24,'fluid3_inlet')
     gmsh.model.addPhysicalGroup(gdim-1,[22],25,'fluid3_outlet')
 
@@ -229,21 +229,48 @@ P_2=functionspace(domain,q_cg2)
 # 자유도를 찾아야..
 
 u_noslip=np.zeros(gdim,dtype=PETSc.ScalarType)
-
+u_inlet=np.array([10,0],dtype=PETSc.ScalarType)
 print('ff')
 inner_facettag=facet_marker.find(2)
 outer_facettag=facet_marker.find(4)
+
+fluid1_inlet_facettag=facet_marker.find(20)
+fluid1_outlet_facettag=facet_marker.find(21)
+fluid2_inlet_facettag=facet_marker.find(22)
+fluid2_outlet_facettag=facet_marker.find(23)
+fluid3_inlet_facettag=facet_marker.find(24)
+fluid3_outlet_facettag=facet_marker.find(25)
+
 print('facet')
 fdim=gdim-1
 
 
 inner_dofs=fem.locate_dofs_topological(v_1,fdim,inner_facettag)
 outer_dofs=fem.locate_dofs_topological(v_2,fdim,outer_facettag)
+#함수공간은 다 똑같이써도 상관없지않나..
+fluid1_inlet_dofs=fem.locate_dofs_topological(v_2,fdim,fluid1_inlet_facettag)
+fluid1_outlet_dofs=fem.locate_dofs_topological(v_2,fdim,fluid1_outlet_facettag)
+fluid2_inlet_dofs=fem.locate_dofs_topological(v_1,fdim,fluid2_inlet_facettag)
+fluid2_outlet_dofs=fem.locate_dofs_topological(v_1,fdim,fluid2_outlet_facettag)
+fluid3_inlet_dofs=fem.locate_dofs_topological(v_2,fdim,fluid3_inlet_facettag)
+fluid3_outlet_dofs=fem.locate_dofs_topological(v_2,fdim,fluid3_outlet_facettag)
+
+# 병류향류설정은 여기서
+
+bc_fluid1_inlet=fem.dirichletbc(u_inlet,fluid1_inlet_dofs,v_2)
+bc_fluid2_inlet=fem.dirichletbc(u_inlet,fluid2_inlet_dofs,v_1)
+bc_fluid3_inlet=fem.dirichletbc(u_inlet,fluid3_inlet_dofs,v_2)
+
 print('1')
 
 bc_inner=fem.dirichletbc(u_noslip,inner_dofs,v_1)
 bc_outter=fem.dirichletbc(u_noslip,outer_dofs,v_2)
 
+# Outlet
+bcp_outlet = fem.dirichletbc(
+    PETSc.ScalarType(0), fem.locate_dofs_topological(Q, fdim, ft.find(outlet_marker)), Q
+)
+bcp = [bcp_outlet]
 
 u_in,v_in=TrialFunction(v_1),TestFunction(v_1)
 u_n_in=Function(v_1)
@@ -268,7 +295,7 @@ print('2')
 #1.속도추정치
 F_in=(rho_test/dt)*dot((u_in-u_n_in),v_in)*dx(2)
 F_in+=rho_test*inner(dot((1.5*u_n_in-0.5*u_n1_in),nabla_grad(0.5*(u_in+u_n_in))),v_in)*dx(2)
-F_in+=0.5*mu_test*inner(nabla_grad(v_in),nabla_grad(u_in+u_n_in))*dx(2)
+F_in+=0.5*mu_test*inner(grad(v_in),grad(u_in+u_n_in))*dx(2)
 F_in-=P__i*div(v_in)*dx(2)
 
 a_in=form(lhs(F_in))
@@ -278,7 +305,7 @@ b_in=create_vector(fem.extract_function_spaces(L_in))
 
 F_out=(rho_test/dt)*dot((u_out-u_n_out),v_out)*dx(4)
 F_out+=rho_test*inner(dot((1.5*u_n_out-0.5*u_n1_out),nabla_grad(0.5*(u_out+u_n_out))),v_out)*dx(4)
-F_out+=0.5*mu_test*inner(nabla_grad(v_out),nabla_grad(u_out+u_n_out))*dx(4)
+F_out+=0.5*mu_test*inner(grad(v_out),grad(u_out+u_n_out))*dx(4)
 F_out-=P__O*div(v_out)*dx(4)
 
 a_out=form(lhs(F_out))
@@ -289,25 +316,28 @@ b_out=create_vector(fem.extract_function_spaces(L_out))
 #2 압력보정
 a_2_in=form(dot(grad(q_in),grad(P_in))*dx(2))
 L_2_in=form((rho_test/dt)*dot(q_in,div(u_s_in))*dx(2))
-A2_in=assemble_matrix(a_2_in)
+A2_in=assemble_matrix(a_2_in,bcs=bcp)
 A2_in.assemble()
 b2_in=create_vector(fem.extract_function_spaces(L_2_in))
 
+print(f'A2_in{A2_in.getSize()}')
+print(f'b2_in{b2_in.getSize()}')
+
 a_2_out=form(dot(grad(q_out),grad(P_out))*dx(4))
 L_2_out=form((rho_test/dt)*dot(q_out,div(u_s_out))*dx(4))
-A2_out=assemble_matrix(a_2_out)
+A2_out=assemble_matrix(a_2_out,bcs=bcp)
 A2_out.assemble()
 b2_out=create_vector(fem.extract_function_spaces(L_2_out))
 
 #3. 속도보정
 a_3_in=form(rho_test*dot(u_in,v_in)*dx(2))
-L_3_in=form(rho_test*dot(u_n1_in,v_in)*dx(2)-dt*dot(v_in,nabla_grad(phi_in))*dx(2))
+L_3_in=form(rho_test*dot(u_s_in,v_in)*dx(2)-dt*dot(v_in,nabla_grad(phi_in))*dx(2))
 A3_in=assemble_matrix(a_3_in)
 A3_in.assemble()
 b3_in=create_vector(fem.extract_function_spaces(L_3_in))
 
 a_3_out=form(rho_test*dot(u_out,v_out)*dx(4))
-L_3_out=form(rho_test*dot(u_n1_out,v_out)*dx(4)-dt*dot(v_out,nabla_grad(phi_out))*dx(4))
+L_3_out=form(rho_test*dot(u_s_out,v_out)*dx(4)-dt*dot(v_out,nabla_grad(phi_out))*dx(4))
 A3_out=assemble_matrix(a_3_out)
 A3_out.assemble()
 b3_out=create_vector(fem.extract_function_spaces(L_3_out))
@@ -372,73 +402,99 @@ t = 0.0
 dt_value = float(dt.value)
 num_steps = 100
 
+bcs_inner = [bc_inner, bc_fluid2_inlet]
+bcs_outer = [bc_outter, bc_fluid1_inlet, bc_fluid3_inlet]
+
 for n in range(num_steps):
-    print('A')
+
     t += dt_value
 
-    # ============================
-    # Step 1 : Tentative velocity
-    # ============================
+    # =====================================================
+    # Step 1 : Tentative velocity (Inner)
+    # =====================================================
 
     A_in.zeroEntries()
-    assemble_matrix(A_in, a_in, bcs=[bc_inner])
+    assemble_matrix(A_in, a_in, bcs=bcs_inner)
     A_in.assemble()
-    print('B')
+
     with b_in.localForm() as loc:
         loc.set(0)
 
     assemble_vector(b_in, L_in)
-    apply_lifting(b_in, [a_in], [[bc_inner]])
+
+    apply_lifting(b_in, [a_in], [bcs_inner])
+
     b_in.ghostUpdate(
         addv=PETSc.InsertMode.ADD_VALUES,
         mode=PETSc.ScatterMode.REVERSE
     )
-    set_bc(b_in, [bc_inner])
+
+    set_bc(b_in, bcs_inner)
 
     solver1_in.solve(b_in, u_s_in.x.petsc_vec)
     u_s_in.x.scatter_forward()
 
-    print('C')
+
+    # =====================================================
+    # Step 1 : Tentative velocity (Outer)
+    # =====================================================
+
     A_out.zeroEntries()
-    assemble_matrix(A_out, a_out, bcs=[bc_outter])
+    assemble_matrix(A_out, a_out, bcs=bcs_outer)
     A_out.assemble()
 
     with b_out.localForm() as loc:
         loc.set(0)
 
-    print('D')
     assemble_vector(b_out, L_out)
-    apply_lifting(b_out, [a_out], [[bc_outter]])
+
+    apply_lifting(b_out, [a_out], [bcs_outer])
+
     b_out.ghostUpdate(
         addv=PETSc.InsertMode.ADD_VALUES,
         mode=PETSc.ScatterMode.REVERSE
     )
-    set_bc(b_out, [bc_outter])
+
+    set_bc(b_out, bcs_outer)
 
     solver1_out.solve(b_out, u_s_out.x.petsc_vec)
     u_s_out.x.scatter_forward()
 
 
-    # ============================
-    # Step 2 : Pressure correction
-    # ============================
-    print('E')
+    # =====================================================
+    # Step 2 : Pressure correction (Inner)
+    # =====================================================
+
     with b2_in.localForm() as loc:
         loc.set(0)
 
     assemble_vector(b2_in, L_2_in)
+
+    b2_in.ghostUpdate(
+        addv=PETSc.InsertMode.ADD_VALUES,
+        mode=PETSc.ScatterMode.REVERSE
+    )
 
     solver2_in.solve(b2_in, phi_in.x.petsc_vec)
     phi_in.x.scatter_forward()
 
     P__i.x.petsc_vec.axpy(1.0, phi_in.x.petsc_vec)
     P__i.x.scatter_forward()
-    print('F')
+
+    print('step1')
+    # =====================================================
+    # Step 2 : Pressure correction (Outer)
+    # =====================================================
 
     with b2_out.localForm() as loc:
         loc.set(0)
 
     assemble_vector(b2_out, L_2_out)
+
+    b2_out.ghostUpdate(
+        addv=PETSc.InsertMode.ADD_VALUES,
+        mode=PETSc.ScatterMode.REVERSE
+    )
 
     solver2_out.solve(b2_out, phi_out.x.petsc_vec)
     phi_out.x.scatter_forward()
@@ -446,43 +502,57 @@ for n in range(num_steps):
     P__O.x.petsc_vec.axpy(1.0, phi_out.x.petsc_vec)
     P__O.x.scatter_forward()
 
-    print('G')
-    # ============================
-    # Step 3 : Velocity correction
-    # ============================
+    print('step2')
+    # =====================================================
+    # Step 3 : Velocity correction (Inner)
+    # =====================================================
 
     with b3_in.localForm() as loc:
         loc.set(0)
 
     assemble_vector(b3_in, L_3_in)
 
+    b3_in.ghostUpdate(
+        addv=PETSc.InsertMode.ADD_VALUES,
+        mode=PETSc.ScatterMode.REVERSE
+    )
+
     solver3_in.solve(b3_in, u_n_in.x.petsc_vec)
     u_n_in.x.scatter_forward()
 
-    print('H')
+
+    # =====================================================
+    # Step 3 : Velocity correction (Outer)
+    # =====================================================
+
     with b3_out.localForm() as loc:
         loc.set(0)
 
     assemble_vector(b3_out, L_3_out)
 
+    b3_out.ghostUpdate(
+        addv=PETSc.InsertMode.ADD_VALUES,
+        mode=PETSc.ScatterMode.REVERSE
+    )
+
     solver3_out.solve(b3_out, u_n_out.x.petsc_vec)
     u_n_out.x.scatter_forward()
 
-    print('I')
-    # ============================
-    # Write results
-    # ============================
+
+    # =====================================================
+    # Save
+    # =====================================================
 
     vtx_u_in.write(t)
-    vtx_p_in.write(t)
-
     vtx_u_out.write(t)
+
+    vtx_p_in.write(t)
     vtx_p_out.write(t)
 
 
-    # ============================
-    # Update previous solution
-    # ============================
+    # =====================================================
+    # Update
+    # =====================================================
 
     u_n1_in.x.array[:] = u_n_in.x.array
     u_n1_out.x.array[:] = u_n_out.x.array
