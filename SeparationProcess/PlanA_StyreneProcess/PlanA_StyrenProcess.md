@@ -71,3 +71,14 @@ $$
 - Styrene can polymerize at elevated temperatures, creating an additional design constraint.
 
 **Objective:** Design a distillation process to separate ethylbenzene and styrene efficiently.
+
+
+## Thermodynamic
+
+
+![VLE equilibrium at 436K](images/dydiagram_436K.png)
+
+
+Beauty.. like Roulght's law..
+
+
