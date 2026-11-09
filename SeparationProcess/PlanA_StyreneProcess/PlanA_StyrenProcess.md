@@ -76,7 +76,7 @@ $$
 ## Thermodynamic
 
 
-![VLE equilibrium at 436K](images/dydiagram_436K.png)
+![VLE equilibrium at 436K](images/xydiagram_436K.png)
 
 
 Beauty.. like Roulght's law..
