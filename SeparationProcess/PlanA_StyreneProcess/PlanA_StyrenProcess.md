@@ -82,3 +82,24 @@ $$
 Beauty.. like Roulght's law..
 
 
+
+
+# Designing log
+
+- Log of Designing
+
+Assume things at first.
+
+*  Proof ideal stage.
+* Assume q-value is 1. Feed's stage is at BUBL point.
+* Assume feed has just Ethyl Benzene and Styrene monomer and it's molarity is same. 
+
+
+
+
+
+
+
+
+
+
