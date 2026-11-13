@@ -9,3 +9,5 @@ Tools for this project i expect.
 *  `Python`
 *  `Simulink`
 
+### We decide our subject separation Ethyl Benzene and Styrene monomer using distillation top.
+
