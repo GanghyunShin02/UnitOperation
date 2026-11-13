@@ -94,7 +94,9 @@ Assume things at first.
 * Assume q-value is 1. Feed's stage is at BUBL point.
 * Assume feed has just Ethyl Benzene and Styrene monomer and it's molarity is same. 
 
+Thermodynamic model...
 
+First use PR.. don't know reason why.
 
 
 
