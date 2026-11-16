@@ -205,8 +205,7 @@ $R=R_{min}$에서는 핀치의 물질전달 구동력이 0이 되어 유한한 �
 
 $$
 
-N_{min,tray}
-=
+N_{min,tray}=
 \frac{\ln\left[\dfrac{x_D(1-x_B)}{x_B(1-x_D)}\right]}
 {\ln\bar\alpha}-1
 
@@ -215,10 +214,8 @@ $$
 수치를 대입하면
 
 $$
-N_{min,tray}
-=
-\frac{\ln(9801)}{\ln(1.279401)}-1
-=
+N_{min,tray}=
+\frac{\ln(9801)}{\ln(1.279401)}-1=
 36.2993
 $$
 
@@ -405,10 +402,8 @@ $$
 충전층에서 재비기로 내려가는 액체의 조성은
 
 $$
-x_{pack,bottom}
-=
-\frac{\bar V y_{reb}+Bx_B}{\bar L}
-=
+x_{pack,bottom}=
+\frac{\bar V y_{reb}+Bx_B}{\bar L}=
 0.01249472
 $$
 
